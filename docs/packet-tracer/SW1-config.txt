@@ -1,0 +1,56 @@
+! SentinelLab ASIR - SW1 (Cisco 2960-24TT)
+! Fa0/1: PC-ADMIN; Fa0/2: PC-USER; Fa0/3: WEB-SRV; Gi0/1: R1 Gi0/0
+enable
+configure terminal
+hostname SW1
+no ip domain-lookup
+!
+vlan 10
+ name MANAGEMENT
+exit
+vlan 20
+ name USERS
+exit
+vlan 30
+ name SERVERS
+exit
+!
+interface FastEthernet0/1
+ description PC_ADMIN
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+ no shutdown
+exit
+!
+interface FastEthernet0/2
+ description PC_USER
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ no shutdown
+exit
+!
+interface FastEthernet0/3
+ description WEB_SERVER
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+ no shutdown
+exit
+!
+interface GigabitEthernet0/1
+ description TRUNK_TO_R1_G0_0
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30
+ no shutdown
+exit
+!
+interface Vlan10
+ description SWITCH_MANAGEMENT
+ ip address 192.168.10.2 255.255.255.0
+ no shutdown
+exit
+ip default-gateway 192.168.10.1
+end
+write memory

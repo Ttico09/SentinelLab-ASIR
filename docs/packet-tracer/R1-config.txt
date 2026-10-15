@@ -1,0 +1,50 @@
+! SentinelLab ASIR - R1 (Cisco 2911)
+! Cable: R1 GigabitEthernet0/0 <-> SW1 GigabitEthernet0/1
+! Ejecutar en CLI de R1. No incluir las lineas de comentario que comienzan por ! si Packet Tracer no las acepta.
+enable
+configure terminal
+hostname R1
+no ip domain-lookup
+!
+interface GigabitEthernet0/0
+ description TRUNK_TO_SW1_G0_1
+ no ip address
+ no shutdown
+exit
+!
+interface GigabitEthernet0/0.10
+ description VLAN10_MANAGEMENT
+ encapsulation dot1Q 10
+ ip address 192.168.10.1 255.255.255.0
+exit
+!
+interface GigabitEthernet0/0.20
+ description VLAN20_USERS
+ encapsulation dot1Q 20
+ ip address 192.168.20.1 255.255.255.0
+exit
+!
+interface GigabitEthernet0/0.30
+ description VLAN30_SERVERS
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+exit
+!
+! ACL extendida aplicada al trafico ENTRANTE desde VLAN 20
+ip access-list extended ACL-USERS-IN
+ remark ALLOW_PING_TO_VLAN20_GATEWAY
+ permit icmp 192.168.20.0 0.0.0.255 host 192.168.20.1 echo
+ remark ALLOW_HTTP_TO_WEB_SERVER_ONLY
+ permit tcp 192.168.20.0 0.0.0.255 host 192.168.30.10 eq 80
+ remark BLOCK_MANAGEMENT_VLAN
+ deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255
+ remark BLOCK_OTHER_SERVER_VLAN_TRAFFIC
+ deny ip 192.168.20.0 0.0.0.255 192.168.30.0 0.0.0.255
+ remark DENY_OTHER_USER_TRAFFIC
+ deny ip 192.168.20.0 0.0.0.255 any
+exit
+interface GigabitEthernet0/0.20
+ ip access-group ACL-USERS-IN in
+exit
+end
+write memory
