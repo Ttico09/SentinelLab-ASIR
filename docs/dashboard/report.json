@@ -1,0 +1,38 @@
+{
+  "project": "SentinelLab ASIR",
+  "source": "SSH authentication logs",
+  "summary": {
+    "events": 10,
+    "failed": 8,
+    "accepted": 2,
+    "alerts": 2
+  },
+  "top_failed_ips": [
+    {
+      "ip": "203.0.113.25",
+      "count": 6
+    },
+    {
+      "ip": "198.51.100.7",
+      "count": 2
+    }
+  ],
+  "alerts": [
+    {
+      "type": "repeated_ssh_failures",
+      "severity": "high",
+      "ip": "203.0.113.25",
+      "timestamp": "2026-10-15T08:04:00+00:00",
+      "failed_attempts": 5,
+      "detail": "5 intentos fallidos en 15 minutos"
+    },
+    {
+      "type": "ssh_success_after_failures",
+      "severity": "medium",
+      "ip": "203.0.113.25",
+      "timestamp": "2026-10-15T08:06:00+00:00",
+      "failed_attempts": 6,
+      "detail": "Autenticación correcta tras varios fallos recientes"
+    }
+  ]
+}

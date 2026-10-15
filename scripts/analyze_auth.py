@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Analiza registros SSH de un laboratorio propio y genera alertas defensivas.
+
+Compatible con Python >=3.10. No utiliza dependencias externas.
+"""
+import argparse
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+from ipaddress import ip_address
+import json
+from pathlib import Path
+import re
+
+LINE = re.compile(r"^(?P<time>\S+)\s+.+?sshd\[\d+\]:\s+(?P<message>.+)$")
+AUTH = re.compile(r"^(?P<action>Failed|Accepted) password for (?:invalid user )?(?P<user>\S+) from (?P<ip>\S+) port \d+ ssh2$")
+
+
+def parse_event(line):
+    """Devuelve un evento SSH normalizado o None si la línea no coincide."""
+    match = LINE.match(line.strip())
+    if not match:
+        return None
+    auth = AUTH.match(match.group('message'))
+    if not auth:
+        return None
+    try:
+        timestamp = datetime.fromisoformat(match.group('time').replace('Z', '+00:00'))
+        if timestamp.tzinfo is None:
+            return None
+        ip = str(ip_address(auth.group('ip')))
+    except ValueError:
+        return None
+    return {'timestamp': timestamp, 'ip': ip, 'user': auth.group('user'),
+            'result': 'failed' if auth.group('action') == 'Failed' else 'accepted'}
+
+
+def analyze_lines(lines, threshold=5, window_minutes=15):
+    if threshold < 1 or window_minutes < 1:
+        raise ValueError('threshold y window_minutes deben ser mayores que cero')
+    events = [event for line in lines if (event := parse_event(line)) is not None]
+    events.sort(key=lambda event: event['timestamp'])
+    failed_by_ip = defaultdict(list)
+    counted_ips = set()
+    alerts = []
+    totals = Counter()
+
+    for event in events:
+        ip, time = event['ip'], event['timestamp']
+        totals[event['result']] += 1
+        recent = [t for t in failed_by_ip[ip] if timedelta(0) <= time - t <= timedelta(minutes=window_minutes)]
+        if event['result'] == 'failed':
+            recent.append(time)
+            if len(recent) >= threshold and ip not in counted_ips:
+                alerts.append({'type': 'repeated_ssh_failures', 'severity': 'high', 'ip': ip,
+                               'timestamp': time.isoformat(), 'failed_attempts': len(recent),
+                               'detail': f'{len(recent)} intentos fallidos en {window_minutes} minutos'})
+                counted_ips.add(ip)
+        elif len(recent) >= 3:
+            alerts.append({'type': 'ssh_success_after_failures', 'severity': 'medium', 'ip': ip,
+                           'timestamp': time.isoformat(), 'failed_attempts': len(recent),
+                           'detail': 'Autenticación correcta tras varios fallos recientes'})
+        failed_by_ip[ip] = recent
+
+    top_ips = Counter(event['ip'] for event in events if event['result'] == 'failed')
+    return {'project': 'SentinelLab ASIR', 'source': 'SSH authentication logs',
+            'summary': {'events': len(events), 'failed': totals['failed'],
+                        'accepted': totals['accepted'], 'alerts': len(alerts)},
+            'top_failed_ips': [{'ip': ip, 'count': count} for ip, count in top_ips.most_common(10)],
+            'alerts': alerts}
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Analizador defensivo de registros SSH')
+    parser.add_argument('--input', type=Path, default=Path('data/sample_auth.log'))
+    parser.add_argument('--output', type=Path, default=Path('docs/dashboard/report.json'))
+    parser.add_argument('--threshold', type=int, default=5)
+    parser.add_argument('--window-minutes', type=int, default=15)
+    args = parser.parse_args()
+    report = analyze_lines(args.input.read_text(encoding='utf-8').splitlines(),
+                           threshold=args.threshold, window_minutes=args.window_minutes)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+    print(f"Analizados {report['summary']['events']} eventos. Alertas: {report['summary']['alerts']}. Guardado en {args.output}")
+
+
+if __name__ == '__main__':
+    main()

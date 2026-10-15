@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.kdbx
+logs_private/
+real_logs/
+*.vbox
+*.vdi
+*.vmdk
+.DS_Store
