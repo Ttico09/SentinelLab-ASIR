@@ -1,102 +1,112 @@
-# SentinelLab ASIR · Fase 2: VLAN, routing y ACL en Cisco Packet Tracer
+# SentinelLab-ASIR | Fase 2: Segmentación de red y seguridad con ACL
 
-**Estado:** guía y configuración de referencia creadas; implementación y validación en Packet Tracer pendientes. **No se incluye un archivo `.pkt`**: debe guardarse desde Cisco Packet Tracer tras construir la topología.
+> **Estado:** implementación y pruebas realizadas en Cisco Packet Tracer. La topología `.pkt` y los resultados se obtuvieron en un laboratorio simulado, no en infraestructura de producción. Algunas capturas finales siguen pendientes de incorporar.
 
-## Objetivo
+## Resumen
 
-Simular la segmentación de una red corporativa pequeña mediante tres VLAN, un router Cisco 2911, un switch Cisco 2960-24TT, dos PC y un servidor HTTP. Implementar una política de mínimo privilegio para usuarios con una ACL extendida de IOS.
+He diseñado una red de laboratorio dividida en tres VLAN: administración (10), usuarios (20) y servidores (30). He configurado **Router-on-a-Stick** con un enlace troncal **802.1Q** entre un Cisco 2960 y un Cisco 2911 y una **ACL extendida** de entrada en la subinterfaz de usuarios, para aplicar una política de acceso mínimo a servicios.
 
-## Diagrama
+El objetivo era **demostrar que segmentar una red no equivale a restringir el tráfico**: antes de aplicar la ACL, los equipos podían comunicarse entre VLAN; después, PC-USER conservó el acceso HTTP al servidor, pero perdió la posibilidad de hacer ping a la red de administración y al servidor.
+
+## Tecnologías y habilidades
+
+Cisco Packet Tracer · Cisco IOS · IPv4/subnetting · VLAN · Switching · 802.1Q · Router-on-a-Stick · Inter-VLAN routing · ACL extendidas · ICMP · HTTP/TCP · ARP · Spanning Tree · Troubleshooting
+
+## Diagrama lógico
 
 ```mermaid
-flowchart TD
-  R[R1 · Cisco 2911 · Gi0/0] <-->|Trunk 802.1Q · 10, 20, 30| S[SW1 · Cisco 2960 · Gi0/1]
-  S ---|Fa0/1 · VLAN 10| A[PC-ADMIN · 192.168.10.10]
-  S ---|Fa0/2 · VLAN 20| U[PC-USER · 192.168.20.10]
-  S ---|Fa0/3 · VLAN 30| W[WEB-SRV · 192.168.30.10 · HTTP]
+flowchart TB
+  R["R1 · Cisco 2911 · Gi0/0"] <-->|"Trunk 802.1Q · VLAN 10, 20 y 30"| S["SW1 · Cisco 2960 · Gi0/1"]
+  S ---|"Fa0/1 · VLAN 10"| A["PC-ADMIN · 192.168.10.10"]
+  S ---|"Fa0/2 · VLAN 20"| U["PC-USER · 192.168.20.10"]
+  S ---|"Fa0/3 · VLAN 30"| W["WEB-SRV · 192.168.30.10 · HTTP/80"]
 ```
 
-## Plan de direccionamiento
+## Direccionamiento
 
-| Equipo/interfaz | VLAN | Dirección | Máscara | Puerta de enlace |
-|---|---:|---|---|---|
-| R1 Gi0/0.10 | 10 | 192.168.10.1 | 255.255.255.0 | — |
-| R1 Gi0/0.20 | 20 | 192.168.20.1 | 255.255.255.0 | — |
-| R1 Gi0/0.30 | 30 | 192.168.30.1 | 255.255.255.0 | — |
-| SW1 VLAN 10 (gestión) | 10 | 192.168.10.2 | 255.255.255.0 | 192.168.10.1 |
-| PC-ADMIN | 10 | 192.168.10.10 | 255.255.255.0 | 192.168.10.1 |
-| PC-USER | 20 | 192.168.20.10 | 255.255.255.0 | 192.168.20.1 |
-| WEB-SRV | 30 | 192.168.30.10 | 255.255.255.0 | 192.168.30.1 |
+| VLAN | Zona | Red | Gateway | Equipo |
+|:---:|---|---|---|---|
+| 10 | MANAGEMENT | `192.168.10.0/24` | `192.168.10.1` | PC-ADMIN: `192.168.10.10` |
+| 20 | USERS | `192.168.20.0/24` | `192.168.20.1` | PC-USER: `192.168.20.10` |
+| 30 | SERVERS | `192.168.30.0/24` | `192.168.30.1` | WEB-SRV: `192.168.30.10` |
 
-## Construcción en Packet Tracer
+El switch tiene una interfaz de administración opcional en VLAN 10 (`192.168.10.2/24`) si se ha aplicado dicha parte de la configuración.
 
-1. Arrastra **Router 2911**, **Switch 2960-24TT**, **2 PC-PT** y **1 Server-PT** al espacio de trabajo.
-2. Renombra cada dispositivo: **R1**, **SW1**, **PC-ADMIN**, **PC-USER**, **WEB-SRV**.
-3. Conecta con *Copper Straight-Through*:
-   - R1 `Gi0/0` ↔ SW1 `Gi0/1`.
-   - PC-ADMIN `Fa0` ↔ SW1 `Fa0/1`.
-   - PC-USER `Fa0` ↔ SW1 `Fa0/2`.
-   - WEB-SRV `Fa0` ↔ SW1 `Fa0/3`.
-4. En CLI de SW1, configura el contenido de `SW1-config.txt`, preferiblemente por bloques. Confirma que no aparecen errores de sintaxis.
-5. En CLI de R1, configura el contenido de `R1-config.txt`, preferiblemente por bloques. La ACL se aplica **in** en `Gi0/0.20`.
-6. En cada PC-PT, entra en **Desktop → IP Configuration** y rellena la dirección IPv4 estática, máscara y gateway de la tabla.
-7. En WEB-SRV, entra en **Desktop → IP Configuration** para su IP y en **Services → HTTP** deja el servicio **On**.
-8. Guarda el trabajo como `SentinelLab-Fase2.pkt` en esta carpeta (este archivo lo genera Packet Tracer).
+## Implementación
 
-**Si cambian los nombres de interfaces según el modelo de hardware usado**, adapta los comandos y documenta el cambio.
+1. Creación de VLAN 10, 20 y 30 y asignación de los puertos de acceso Fa0/1–Fa0/3 en SW1.
+2. Configuración de Gi0/1 como trunk 802.1Q con VLAN permitidas 10, 20 y 30.
+3. Configuración de subinterfaces `Gi0/0.10`, `Gi0/0.20` y `Gi0/0.30` en R1, con direcciones de gateway.
+4. Configuración de las IP estáticas de PC-ADMIN, PC-USER y WEB-SRV y activación de HTTP en el servidor.
+5. Verificación de la conectividad inter-VLAN antes de introducir controles.
+6. Aplicación de `ACL-USERS-IN` en **dirección de entrada** sobre `Gi0/0.20`.
 
-## ACL: interpretación de mínimo privilegio
+### Política de la ACL
 
-La ACL de `Gi0/0.20` permite al segmento USUARIOS hacer ping a su **propio** gateway y acceder a **HTTP TCP/80** del servidor. Deniega el resto del tráfico IP dirigido a redes de gestión, servidores y cualquier otro destino. **No permite DNS, HTTPS, Internet ni SSH desde usuarios**; añadir estas excepciones solo si se justifican en una mejora posterior.
+| Tráfico iniciado desde VLAN 20 | Decisión |
+|---|---|
+| ICMP Echo al gateway `192.168.20.1` | Permitir |
+| TCP al puerto 80 de `192.168.30.10` | Permitir |
+| Resto del tráfico IP enrutado desde VLAN 20 | Denegar |
 
-Esta ACL es **sin estado**: una solicitud desde GESTIÓN hacia USUARIOS podría no recibir respuesta por la ACL de retorno, aunque no haya ACL aplicada a la interfaz de gestión. El experimento principal usa las pruebas de la sección siguiente.
+**Alcance técnico:** las ACL clásicas de IOS no mantienen estado de conexión. Este filtro afecta al tráfico que llega a R1 a través de `Gi0/0.20`; no protege de forma automática el tráfico entre equipos de la misma VLAN ni sustituye a un firewall con inspección de estado. La detección SSH en Python de SentinelLab es otro módulo y aún no está integrada con este laboratorio de Packet Tracer.
 
-## Pruebas que debes ejecutar y documentar
+## Pruebas y resultados
 
-| Origen | Destino / comando | Resultado esperado | Motivo |
+Las siguientes pruebas fueron ejecutadas en Cisco Packet Tracer; los resultados fueron confirmados durante el desarrollo del laboratorio. Las capturas de algunos resultados están pendientes.
+
+| Origen | Prueba | Antes de ACL | Después de ACL |
 |---|---|---|---|
-| PC-USER | `ping 192.168.20.1` | **Éxito** | Gateway propio; ICMP permitido |
-| PC-USER | `ping 192.168.10.10` | **Fallo** | Red de gestión bloqueada |
-| PC-USER | `ping 192.168.30.10` | **Fallo** | ICMP hacia servidores no autorizado |
-| PC-USER | navegador `http://192.168.30.10` | **Éxito** | HTTP al único servidor permitido |
-| PC-ADMIN | `ping 192.168.30.10` | **Éxito** | Sin ACL bloqueando el tráfico desde GESTIÓN |
-| PC-ADMIN | `ping 192.168.10.2` | **Éxito** | Administración del switch en VLAN 10 |
+| PC-USER | `ping 192.168.20.1` | Responde | **Responde** |
+| PC-USER | `ping 192.168.10.10` | Responde | **Bloqueado** |
+| PC-USER | `ping 192.168.30.10` | Responde | **Bloqueado** |
+| PC-USER | Abrir `http://192.168.30.10` | Disponible | **Disponible** |
+| PC-ADMIN | `ping 192.168.30.10` | Responde | **Responde** |
 
-Si un primer ping falla, repítelo tras resolver ARP. Si todos los pings fallan, revisa puertos conectados, IPs, VLAN y trunk **antes** de depurar la ACL.
+**Incidencias y aprendizaje:** al comienzo, `show interfaces trunk` no mostraba el enlace porque el router estaba apagado; tras encenderlo, el trunk quedó operativo. El primer paquete de algunos pings se perdió durante la resolución inicial de direcciones MAC mediante ARP. Ambas situaciones se resolvieron y se verificó la conectividad antes de aplicar las ACL.
 
-## Comandos de diagnóstico
+## Evidencias capturadas
 
-### En SW1
+### Enlace troncal y Spanning Tree
 
-```
-show vlan brief
-show interfaces trunk
-show ip interface brief
-show running-config
-```
+![SW1: enlace troncal activo, VLAN 10/20/30 en forwarding y spanning-tree VLAN 10](screenshots/02-trunk-stp-forwarding.png)
 
-### En R1
+### Subinterfaces de R1 operativas
 
-```
-show ip interface brief
-show ip route
-show access-lists
-show ip interface GigabitEthernet0/0.20
-show running-config
-```
+![R1: subinterfaces Gi0/0.10, Gi0/0.20 y Gi0/0.30 en estado up/up](screenshots/03-router-subinterfaces-up.png)
 
-## Evidencias para portfolio
+Estas dos capturas se tomaron durante la configuración y validación de la red. El resto de evidencias debe añadirse desde la simulación definitiva:
 
-- Captura A: topología completa, nombre de equipos y VLAN.
-- Captura B: `show vlan brief` y `show interfaces trunk` de SW1.
-- Captura C: `show ip interface brief` de R1.
-- Captura D: navegador de PC-USER mostrando el HTTP de WEB-SRV.
-- Captura E: ping denegado desde PC-USER a PC-ADMIN.
-- Captura F: `show access-lists` con contadores de coincidencias (si Packet Tracer los muestra).
-- Captura G: modo **Simulation** con el paquete que pasa o se descarta por la ACL.
+- [ ] `01-topology.png` — vista completa de la topología.
+- [ ] `04-acl-rules.png` — salida de `show access-lists` y, si es posible, de `show ip interface g0/0.20`.
+- [ ] `05-admin-denied.png` — ping de PC-USER a `192.168.10.10` denegado.
+- [ ] `06-server-denied.png` — ping de PC-USER a `192.168.30.10` denegado.
+- [ ] `07-http-allowed.png` — navegador de PC-USER mostrando `http://192.168.30.10`.
 
-> En GitHub, guarda `.pkt`, configuraciones `.txt`, fotos/diagramas y anotaciones. **No marques esta fase como implementada** hasta completar y verificar las pruebas. Las capturas deben reflejar el resultado real, no un resultado supuesto.
+> **Importante:** las imágenes de arriba proceden de capturas reales del laboratorio. No incluir capturas de resultados que aún no se hayan realizado o conservado.
 
-## Próxima iteración
+## Archivos de configuración y simulación
 
-Aplicar hardening básico en el switch/router, agregar DNS o HTTPS mediante excepciones específicas de ACL, y preparar transición del servidor simulado a una VM Linux para integrar registros SSH y SentinelLab.
+En esta misma carpeta deben quedar los archivos reales del proyecto, si se han conservado:
+
+- `SentinelLab-Fase2-After-ACL.pkt`: simulación final con la ACL aplicada.
+- `SentinelLab-Fase2-Before-ACL.pkt`: estado anterior a la ACL, si se guardó.
+- `R1-config.txt` y `SW1-config.txt`: configuración exportada o revisada, eliminando secretos.
+
+Los archivos `.pkt` se abren con Cisco Packet Tracer; GitHub no los visualiza en el navegador.
+
+## Cómo reproducir las comprobaciones
+
+1. Abrir la simulación final en Cisco Packet Tracer y esperar a que los enlaces estén activos.
+2. En SW1: `show vlan brief`, `show interfaces trunk`, `show spanning-tree vlan 10`.
+3. En R1: `show ip interface brief`, `show ip route`, `show access-lists` y `show ip interface gigabitEthernet 0/0.20`.
+4. Desde PC-USER: probar ping a gateway, PC-ADMIN y WEB-SRV; abrir HTTP hacia WEB-SRV.
+5. Desde PC-ADMIN: comprobar acceso ICMP al servidor.
+
+## Próximas fases
+
+- Hardening de servidor Linux (SSH, permisos, firewall, actualizaciones y copias de seguridad).
+- Monitorización con Wazuh y documentación del análisis de registros.
+- Elaboración de una ficha de caso práctico en Notion con evidencias verificables.
+
+**Proyecto educativo y defensivo** desarrollado en entorno de simulación autorizado.

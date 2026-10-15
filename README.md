@@ -47,7 +47,7 @@ flowchart LR
 | Fase | Entregable | Estado | Competencias |
 |---|---|---|---|
 | 1 | Parser SSH, detecciones, pruebas y dashboard | **Inicial funcional** | Python, HTML, JavaScript, troubleshooting |
-| 2 | VLAN, direccionamiento IP, ACL y topología Packet Tracer | Pendiente | Cisco, routing, switching |
+| 2 | VLAN, direccionamiento IP, ACL y topología Packet Tracer | Completado y terminado | Cisco, routing, switching |
 | 3 | Servidor Debian/Ubuntu, SSH seguro, UFW, usuarios y backups | Pendiente | Linux, hardening |
 | 4 | Integración centralizada de registros y Wazuh | Pendiente | Blue Team, SIEM, monitorización |
 | 5 | Incidentes simulados autorizados, capturas y análisis técnico | Pendiente | Detección, documentación, respuesta |
@@ -71,3 +71,15 @@ Este repositorio es educativo y defensivo. Usa únicamente sistemas propios o au
 - Almacenamiento SQLite de eventos y panel histórico.
 - Integración de alertas con Wazuh en una VM.
 - Laboratorios de red reproducibles en Packet Tracer y diagramas.
+
+## Fase 2 · Cisco Network Security — Completada
+
+He implementado y validado en Cisco Packet Tracer una topología segmentada en VLAN 10 (gestión), VLAN 20 (usuarios) y VLAN 30 (servidores). He configurado switching, trunk 802.1Q y Router-on-a-Stick en Cisco IOS, y he aplicado una ACL extendida para controlar el tráfico entre las redes.
+
+**Resultado:** PC-USER puede acceder por HTTP al servidor de VLAN 30, pero tiene bloqueados los pings a PC-ADMIN y a WEB-SRV. PC-ADMIN conserva conectividad con el servidor.
+
+**Habilidades demostradas:** VLAN, CCNA, routing inter-VLAN, ACL extendidas, TCP/IP, ICMP, troubleshooting y pruebas de controles de acceso.
+
+[Ver el caso práctico Cisco y sus evidencias](docs/packet-tracer/README.md)
+
+---
