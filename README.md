@@ -29,6 +29,52 @@ Abre <http://localhost:8000/> en el navegador. En algunas instalaciones Linux el
 
 Resultado esperado con los datos de ejemplo: **10 eventos SSH, 8 fallos, 2 accesos correctos y 2 alertas**. La muestra también contiene una línea `cron` ignorada.
 
+## Parser SSH: formatos soportados y validación
+
+El analizador reconoce mensajes `Failed password`, `Accepted password`,
+`Failed publickey` y `Accepted publickey`, con identificador de proceso
+`sshd[PID]:` y fecha ISO 8601 con zona horaria.
+
+Cada evento conserva el método de autenticación en `auth_method`.
+Las direcciones se validan con `ipaddress` y se normalizan, incluido IPv6.
+El patrón admite un sufijo opcional con detalles de la clave; no verifica
+criptográficamente su contenido.
+
+El informe JSON incluye una sección `parsing`:
+
+| Campo | Significado |
+|---|---|
+| `total_lines` | Total de líneas leídas |
+| `parsed_events` | Eventos interpretados correctamente |
+| `non_ssh_lines` | Líneas sin el identificador `sshd[PID]:` reconocido |
+| `unparsed_ssh_lines` | Líneas con ese identificador que no se pudieron interpretar |
+
+Una línea SSH no interpretada puede contener un mensaje no soportado
+o datos inválidos. No implica por sí sola actividad maliciosa.
+
+### Validación realizada
+
+- Trece pruebas unitarias ejecutadas correctamente.
+- Casos añadidos: acceso por clave pública, conservación del método
+  password, IP inválida, normalización IPv6, fecha imposible,
+  ausencia de zona horaria y contadores de parsing.
+- Ejecución completa con `data/sample_auth.log`: 11 líneas leídas,
+  10 eventos interpretados, 1 línea sin el identificador SSH reconocido
+  y 0 líneas SSH sin interpretar.
+- Resultado de la muestra: 8 fallos, 2 accesos correctos y 2 alertas.
+
+### Limitaciones actuales
+
+La validación utiliza registros sintéticos. Todavía no se ha comprobado
+la compatibilidad con registros obtenidos de una VM Linux.
+
+No se soporta el formato syslog tradicional sin año y zona horaria,
+ni la salida JSON de journalctl. Otros identificadores de proceso
+pueden clasificarse como `non_ssh_lines`.
+
+El campo `auth_method` se conserva en los eventos internos; todavía
+no se presenta en las alertas ni en el dashboard.
+
 ## Arquitectura objetivo (aún no integrada)
 
 El siguiente diagrama representa la arquitectura que se pretende construir por fases. No describe un entorno completo ya desplegado: la topología de las VLAN se ha validado en Packet Tracer y el analizador SSH se ha probado por separado con datos sintéticos.

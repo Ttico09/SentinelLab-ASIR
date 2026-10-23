@@ -12,8 +12,14 @@ from pathlib import Path
 import re
 
 LINE = re.compile(r"^(?P<time>\S+)\s+.+?sshd\[\d+\]:\s+(?P<message>.+)$")
-AUTH = re.compile(r"^(?P<action>Failed|Accepted) password for (?:invalid user )?(?P<user>\S+) from (?P<ip>\S+) port \d+ ssh2$")
-
+AUTH = re.compile(
+    r"^(?P<action>Failed|Accepted) "
+    r"(?P<method>password|publickey) for "
+    r"(?:invalid user )?(?P<user>\S+) "
+    r"from (?P<ip>\S+) port \d+ ssh2"
+    r"(?:: (?P<key_details>.+))?$"
+)
+SSH_PROCESS = re.compile(r"(?:^|\s)sshd\[\d+\]:")
 
 def parse_event(line):
     """Devuelve un evento SSH normalizado o None si la línea no coincide."""
@@ -30,14 +36,39 @@ def parse_event(line):
         ip = str(ip_address(auth.group('ip')))
     except ValueError:
         return None
-    return {'timestamp': timestamp, 'ip': ip, 'user': auth.group('user'),
-            'result': 'failed' if auth.group('action') == 'Failed' else 'accepted'}
+    return {
+        "timestamp": timestamp,
+        "ip": ip,
+        "user": auth.group("user"),
+        "result": (
+            "failed" if auth.group("action") == "Failed" else "accepted"
+        ),
+        "auth_method": auth.group("method"),
+    }
 
 
 def analyze_lines(lines, threshold=5, window_minutes=15):
     if threshold < 1 or window_minutes < 1:
         raise ValueError('threshold y window_minutes deben ser mayores que cero')
-    events = [event for line in lines if (event := parse_event(line)) is not None]
+    events = []
+    parsing = {
+        "total_lines": 0,
+        "parsed_events": 0,
+        "non_ssh_lines": 0,
+        "unparsed_ssh_lines": 0,
+    }
+
+    for line in lines:
+        parsing["total_lines"] += 1
+        event = parse_event(line)
+
+        if event is not None:
+            events.append(event)
+            parsing["parsed_events"] += 1
+        elif SSH_PROCESS.search(line):
+            parsing["unparsed_ssh_lines"] += 1
+        else:
+            parsing["non_ssh_lines"] += 1
     events.sort(key=lambda event: event['timestamp'])
     failed_by_ip = defaultdict(list)
     counted_ips = set()
@@ -62,7 +93,7 @@ def analyze_lines(lines, threshold=5, window_minutes=15):
         failed_by_ip[ip] = recent
 
     top_ips = Counter(event['ip'] for event in events if event['result'] == 'failed')
-    return {'project': 'SentinelLab ASIR', 'source': 'SSH authentication logs',
+    return {'project': 'SentinelLab ASIR', 'source': 'SSH authentication logs', 'parsing': parsing,
             'summary': {'events': len(events), 'failed': totals['failed'],
                         'accepted': totals['accepted'], 'alerts': len(alerts)},
             'top_failed_ips': [{'ip': ip, 'count': count} for ip, count in top_ips.most_common(10)],
