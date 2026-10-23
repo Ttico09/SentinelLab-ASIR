@@ -1,18 +1,19 @@
 # SentinelLab ASIR · Laboratorio de infraestructura y detección (Blue Team)
 
-**Autor:** Alejandro Oliach Andreu  
-**Estado:** versión inicial funcional (análisis SSH + dashboard) · redes y SIEM por implementar  
-**Objetivo:** demostrar conocimientos de ASIR y el interés profesional en ciberseguridad en un entorno aislado y autorizado.
+- **Autor:** Alejandro Oliach Andreu
+- **Estado:** fase 1 (analizador SSH y dashboard) funcional; fase 2 (redes en Cisco Packet Tracer) completada. Fases 3–5 pendientes.
+- **Objetivo:** demostrar conocimientos de ASIR y el interés profesional en ciberseguridad en un entorno aislado y autorizado.
 
-## ¿Qué incluye esta primera versión?
+## ¿Qué está implementado actualmente?
 
 - **Python 3**: analizador de registros SSH con detección de intentos fallidos repetidos en ventana temporal y de accesos correctos tras fallos.
 - **Pruebas automatizadas**: tests unitarios con `unittest`.
 - **Desarrollo web**: panel HTML, CSS y JavaScript que presenta las alertas de un informe JSON.
 - **Datos sintéticos**: direcciones IP reservadas para documentación, sin información de usuarios reales.
-- **Documentación**: diseño de infraestructura, laboratorio Cisco Packet Tracer, hardening Linux, registro de evidencias y plantilla Notion.
+- **Redes en Cisco Packet Tracer**: topología con tres VLAN, routing inter-VLAN y ACL extendida; se incluyen archivos `.pkt`, configuraciones y capturas de las pruebas.
+- **Documentación**: diseño de infraestructura, [caso práctico Cisco](docs/packet-tracer/README.md), plantillas de evidencias y portfolio. La guía de hardening Linux describe una fase futura.
 
-> La parte de redes, los servidores virtuales y el SIEM están **planificados, no implementados**. No presentar estas fases como completadas hasta generar las evidencias correspondientes.
+> **Alcance actual:** el analizador SSH funciona con registros sintéticos y la red de la fase 2 está implementada **en Cisco Packet Tracer**. Son dos prácticas independientes por ahora: no hay integración entre el analizador y la red simulada. El servidor Linux real o virtual, su hardening, el SIEM Wazuh y las pruebas integradas de incidentes **siguen pendientes**.
 
 ## Inicio rápido — Windows / Linux / macOS
 
@@ -28,7 +29,9 @@ Abre <http://localhost:8000/> en el navegador. En algunas instalaciones Linux el
 
 Resultado esperado con los datos de ejemplo: **10 eventos SSH, 8 fallos, 2 accesos correctos y 2 alertas**. La muestra también contiene una línea `cron` ignorada.
 
-## Arquitectura prevista
+## Arquitectura objetivo (aún no integrada)
+
+El siguiente diagrama representa la arquitectura que se pretende construir por fases. No describe un entorno completo ya desplegado: la topología de las VLAN se ha validado en Packet Tracer y el analizador SSH se ha probado por separado con datos sintéticos.
 
 ```mermaid
 flowchart LR
@@ -47,7 +50,7 @@ flowchart LR
 | Fase | Entregable | Estado | Competencias |
 |---|---|---|---|
 | 1 | Parser SSH, detecciones, pruebas y dashboard | **Inicial funcional** | Python, HTML, JavaScript, troubleshooting |
-| 2 | VLAN, direccionamiento IP, ACL y topología Packet Tracer | Completado y terminado | Cisco, routing, switching |
+| 2 | VLAN, direccionamiento IP, ACL y topología Packet Tracer | **Completada en simulación** | Cisco IOS, routing, switching |
 | 3 | Servidor Debian/Ubuntu, SSH seguro, UFW, usuarios y backups | Pendiente | Linux, hardening |
 | 4 | Integración centralizada de registros y Wazuh | Pendiente | Blue Team, SIEM, monitorización |
 | 5 | Incidentes simulados autorizados, capturas y análisis técnico | Pendiente | Detección, documentación, respuesta |
@@ -70,7 +73,7 @@ Este repositorio es educativo y defensivo. Usa únicamente sistemas propios o au
 - Detección de múltiples nombres de usuario desde una sola IP.
 - Almacenamiento SQLite de eventos y panel histórico.
 - Integración de alertas con Wazuh en una VM.
-- Laboratorios de red reproducibles en Packet Tracer y diagramas.
+- Ampliar el laboratorio de Packet Tracer con nuevos escenarios y pruebas documentadas.
 
 ## Fase 2 · Cisco Network Security — Completada
 
@@ -78,7 +81,7 @@ He implementado y validado en Cisco Packet Tracer una topología segmentada en V
 
 **Resultado:** PC-USER puede acceder por HTTP al servidor de VLAN 30, pero tiene bloqueados los pings a PC-ADMIN y a WEB-SRV. PC-ADMIN conserva conectividad con el servidor.
 
-**Habilidades demostradas:** VLAN, CCNA, routing inter-VLAN, ACL extendidas, TCP/IP, ICMP, troubleshooting y pruebas de controles de acceso.
+**Habilidades demostradas:** configuración de VLAN, routing inter-VLAN, ACL extendidas, TCP/IP, ICMP, troubleshooting y pruebas de controles de acceso.
 
 [Ver el caso práctico Cisco y sus evidencias](docs/packet-tracer/README.md)
 

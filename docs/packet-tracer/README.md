@@ -4,6 +4,8 @@
 **Tipo:** laboratorio educativo de redes y ciberseguridad defensiva  
 **Tecnologías:** Cisco IOS · VLAN · Trunk 802.1Q · Router-on-a-Stick · IPv4 · ACL extendidas · ICMP · HTTP · ARP · STP
 
+**Alcance:** esta es la **fase 2** de SentinelLab-ASIR, completada en un entorno simulado de Cisco Packet Tracer. No incluye todavía el despliegue de un servidor Linux, la integración con el analizador SSH ni un SIEM; esas fases siguen pendientes. Consulta el [estado general del proyecto](../../README.md).
+
 ## 1. Objetivo del proyecto
 
 Diseñar una red empresarial de laboratorio segmentada en **tres VLAN** y aplicar el principio de **mínimo privilegio** con una lista de control de acceso (ACL) extendida.
