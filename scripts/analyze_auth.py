@@ -47,9 +47,13 @@ def parse_event(line):
     }
 
 
-def analyze_lines(lines, threshold=5, window_minutes=15):
-    if threshold < 1 or window_minutes < 1:
-        raise ValueError('threshold y window_minutes deben ser mayores que cero')
+def analyze_lines(lines, threshold=5, window_minutes=15, success_threshold=3):
+    if threshold < 1 or window_minutes < 1 or success_threshold < 1:
+        raise ValueError(
+            "threshold, window_minutes y success_threshold "
+            "deben ser mayores que cero"
+        )
+
     events = []
     parsing = {
         "total_lines": 0,
@@ -69,28 +73,56 @@ def analyze_lines(lines, threshold=5, window_minutes=15):
             parsing["unparsed_ssh_lines"] += 1
         else:
             parsing["non_ssh_lines"] += 1
-    events.sort(key=lambda event: event['timestamp'])
+
+    events.sort(key=lambda event: event["timestamp"])
     failed_by_ip = defaultdict(list)
+    failed_by_account = defaultdict(list)
     counted_ips = set()
     alerts = []
     totals = Counter()
 
     for event in events:
         ip, time = event['ip'], event['timestamp']
+        account = (ip, event["user"])
+        recent_account = [
+            timestamp
+            for timestamp in failed_by_account[account]
+            if timedelta(0) <= time - timestamp
+            <= timedelta(minutes=window_minutes)
+        ]
         totals[event['result']] += 1
         recent = [t for t in failed_by_ip[ip] if timedelta(0) <= time - t <= timedelta(minutes=window_minutes)]
+
+        if not recent:
+            counted_ips.discard(ip)
+
         if event['result'] == 'failed':
             recent.append(time)
+            recent_account.append(time)
             if len(recent) >= threshold and ip not in counted_ips:
                 alerts.append({'type': 'repeated_ssh_failures', 'severity': 'high', 'ip': ip,
                                'timestamp': time.isoformat(), 'failed_attempts': len(recent),
                                'detail': f'{len(recent)} intentos fallidos en {window_minutes} minutos'})
                 counted_ips.add(ip)
-        elif len(recent) >= 3:
-            alerts.append({'type': 'ssh_success_after_failures', 'severity': 'medium', 'ip': ip,
-                           'timestamp': time.isoformat(), 'failed_attempts': len(recent),
-                           'detail': 'Autenticación correcta tras varios fallos recientes'})
+        elif len(recent_account) >= success_threshold:
+            alerts.append({
+                "type": "ssh_success_after_failures",
+                "severity": "medium",
+                "ip": ip,
+                "user": event["user"],
+                "timestamp": time.isoformat(),
+                "failed_attempts": len(recent_account),
+                "detail": (
+                    "Autenticación correcta tras varios fallos recientes "
+                    "para la misma IP y usuario"
+                ),
+            })
+            
+        if event["result"] == "accepted":
+            recent_account = []
+
         failed_by_ip[ip] = recent
+        failed_by_account[account] = recent_account
 
     top_ips = Counter(event['ip'] for event in events if event['result'] == 'failed')
     return {'project': 'SentinelLab ASIR', 'source': 'SSH authentication logs', 'parsing': parsing,
@@ -106,9 +138,19 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('docs/dashboard/report.json'))
     parser.add_argument('--threshold', type=int, default=5)
     parser.add_argument('--window-minutes', type=int, default=15)
+    parser.add_argument(
+        "--success-threshold",
+        type=int,
+        default=3,
+        help="Fallos previos de la misma IP y usuario para alertar tras un éxito",
+    )
     args = parser.parse_args()
-    report = analyze_lines(args.input.read_text(encoding='utf-8').splitlines(),
-                           threshold=args.threshold, window_minutes=args.window_minutes)
+    report = analyze_lines(
+        args.input.read_text(encoding="utf-8").splitlines(),
+        threshold=args.threshold,
+        window_minutes=args.window_minutes,
+        success_threshold=args.success_threshold,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
     print(f"Analizados {report['summary']['events']} eventos. Alertas: {report['summary']['alerts']}. Guardado en {args.output}")
