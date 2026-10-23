@@ -54,7 +54,7 @@ o datos inválidos. No implica por sí sola actividad maliciosa.
 
 ### Validación realizada
 
-- Trece pruebas unitarias ejecutadas correctamente.
+- 23 pruebas unitarias ejecutadas correctamente en local.
 - Casos añadidos: acceso por clave pública, conservación del método
   password, IP inválida, normalización IPv6, fecha imposible,
   ausencia de zona horaria y contadores de parsing.
@@ -74,6 +74,62 @@ pueden clasificarse como `non_ssh_lines`.
 
 El campo `auth_method` se conserva en los eventos internos; todavía
 no se presenta en las alertas ni en el dashboard.
+
+## Correlación de eventos SSH
+
+El analizador aplica dos reglas sobre eventos ordenados por fecha:
+
+| Regla | Agrupación | Umbral predeterminado |
+|---|---|---|
+| Fallos repetidos | IP de origen | 5 fallos |
+| Acceso correcto tras fallos | IP de origen y usuario | 3 fallos anteriores al éxito |
+
+Ambas utilizan una ventana temporal de 15 minutos, configurable.
+
+### Fallos repetidos
+
+Se genera una alerta cuando una IP alcanza el umbral dentro de la
+ventana. Los siguientes fallos del mismo episodio no generan nuevas
+alertas.
+
+La detección se rearma cuando no quedan fallos anteriores de esa IP
+dentro de la ventana. Con la configuración predeterminada, se necesita
+una pausa de más de 15 minutos sin fallos. El límite exacto de
+15 minutos está incluido.
+
+Una secuencia continua de fallos puede mantener un único episodio
+durante mucho tiempo. No se generan recordatorios periódicos.
+
+### Acceso correcto tras fallos
+
+Solo se correlacionan fallos de la misma IP y el mismo usuario.
+Cada acceso correcto reinicia ese historial, haya generado alerta
+o no. El historial general de fallos por IP se conserva.
+
+La alerta incluye el usuario y el número de fallos correlacionados.
+Es un indicio que investigar, no una confirmación de compromiso.
+
+### Parámetros
+
+- `--threshold`: umbral de fallos repetidos; predeterminado 5.
+- `--success-threshold`: fallos previos necesarios para alertar
+  tras un éxito; predeterminado 3.
+- `--window-minutes`: ventana temporal de ambas reglas;
+  predeterminado 15.
+
+### Validación de esta mejora
+
+- 23 pruebas unitarias ejecutadas correctamente en local.
+- Casos cubiertos: ráfagas separadas, ausencia de alertas duplicadas,
+  límites temporales, correlación por usuario, reinicio tras un éxito
+  y configuración del umbral.
+- Ejecución por CLI con la muestra sintética y
+  `--success-threshold 7`: 10 eventos, 8 fallos, 2 accesos correctos
+  y una única alerta de fallos repetidos.
+
+El estado se mantiene únicamente durante cada ejecución.
+Reanalizar el mismo archivo vuelve a generar sus alertas.
+La validación con registros reales de Linux sigue pendiente.
 
 ## Arquitectura objetivo (aún no integrada)
 

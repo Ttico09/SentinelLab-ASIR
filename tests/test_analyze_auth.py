@@ -3,8 +3,12 @@ import unittest
 from scripts.analyze_auth import analyze_lines, parse_event
 
 
-def entry(when, action='Failed', ip='203.0.113.25'):
-    return f'2026-10-15T08:{when:02d}:00+00:00 lab sshd[123]: {action} password for invalid user admin from {ip} port 52348 ssh2'
+def entry(when, action="Failed", ip="203.0.113.25", user="admin"):
+    account = f"invalid user {user}" if action == "Failed" else user
+    return (
+        f"2026-10-15T08:{when:02d}:00+00:00 lab sshd[123]: "
+        f"{action} password for {account} from {ip} port 52348 ssh2"
+    )
 
 
 class TestSSHDetection(unittest.TestCase):
@@ -104,6 +108,142 @@ class TestSSHDetection(unittest.TestCase):
         )
         self.assertEqual(result["summary"]["events"], 1)
 
+    def test_detects_two_separate_bursts(self):
+        minutes = [0, 1, 2, 3, 4, 30, 31, 32, 33, 34]
+        lines = [entry(minute) for minute in minutes]
+
+        result = analyze_lines(lines, threshold=5, window_minutes=15)
+        alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "repeated_ssh_failures"
+        ]
+
+        self.assertEqual(len(alerts), 2)
+        self.assertEqual(
+            [alert["timestamp"] for alert in alerts],
+            [
+                "2026-10-15T08:04:00+00:00",
+                "2026-10-15T08:34:00+00:00",
+            ],
+        )
+
+    def test_does_not_repeat_alert_within_burst(self):
+        lines = [entry(minute) for minute in range(6)]
+
+        result = analyze_lines(lines, threshold=5, window_minutes=15)
+        alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "repeated_ssh_failures"
+        ]
+
+        self.assertEqual(len(alerts), 1)
+    def test_burst_stays_active_at_exact_window_boundary(self):
+        lines = [entry(minute) for minute in [0, 15]]
+
+        result = analyze_lines(lines, threshold=1, window_minutes=15)
+        alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "repeated_ssh_failures"
+        ]
+
+        self.assertEqual(len(alerts), 1)
+
+    def test_burst_rearms_after_window_expires(self):
+        lines = [entry(minute) for minute in [0, 16]]
+
+        result = analyze_lines(lines, threshold=1, window_minutes=15)
+        alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "repeated_ssh_failures"
+        ]
+
+        self.assertEqual(len(alerts), 2)
+
+    def test_continuous_burst_generates_one_alert(self):
+        lines = [entry(minute) for minute in range(40)]
+
+        result = analyze_lines(lines, threshold=5, window_minutes=15)
+        alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "repeated_ssh_failures"
+        ]
+
+        self.assertEqual(len(alerts), 1)
+
+    def test_success_does_not_correlate_other_users_failures(self):
+        lines = [
+            entry(0, user="admin"),
+            entry(1, user="admin"),
+            entry(2, user="admin"),
+            entry(3, action="Accepted", user="alumno"),
+        ]
+
+        result = analyze_lines(lines)
+        success_alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "ssh_success_after_failures"
+        ]
+
+        self.assertEqual(len(success_alerts), 0)
+
+    def test_success_does_not_reuse_previous_failures(self):
+        lines = [
+            entry(0),
+            entry(1),
+            entry(2),
+            entry(3, action="Accepted"),
+            entry(4, action="Accepted"),
+        ]
+
+        result = analyze_lines(lines)
+        success_alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "ssh_success_after_failures"
+        ]
+
+        self.assertEqual(len(success_alerts), 1)
+        self.assertEqual(
+            success_alerts[0]["timestamp"],
+            "2026-10-15T08:03:00+00:00",
+        )
+        self.assertEqual(success_alerts[0]["failed_attempts"], 3)
+
+    def test_success_resets_failures_below_threshold(self):
+        lines = [
+            entry(0),
+            entry(1),
+            entry(2, action="Accepted"),
+            entry(3),
+            entry(4, action="Accepted"),
+        ]
+
+        result = analyze_lines(lines)
+        success_alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "ssh_success_after_failures"
+        ]
+
+        self.assertEqual(len(success_alerts), 0)
+
+    def test_success_threshold_is_configurable(self):
+        lines = [
+            entry(0),
+            entry(1),
+            entry(2, action="Accepted"),
+        ]
+
+        result = analyze_lines(lines, success_threshold=2)
+        success_alerts = [
+            alert for alert in result["alerts"]
+            if alert["type"] == "ssh_success_after_failures"
+        ]
+
+        self.assertEqual(len(success_alerts), 1)
+        self.assertEqual(success_alerts[0]["failed_attempts"], 2)
+
+    def test_rejects_invalid_success_threshold(self):
+        with self.assertRaises(ValueError):
+            analyze_lines([], success_threshold=0)
 
 if __name__ == '__main__':
     unittest.main()
