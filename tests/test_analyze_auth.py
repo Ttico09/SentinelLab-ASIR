@@ -245,5 +245,44 @@ class TestSSHDetection(unittest.TestCase):
         with self.assertRaises(ValueError):
             analyze_lines([], success_threshold=0)
 
+    def test_parser_accepts_sshd_session(self):
+        # Ejemplos sintéticos con el formato observado en el laboratorio.
+        for action, expected in (
+            ("Failed", "failed"),
+            ("Accepted", "accepted"),
+        ):
+            with self.subTest(action=action):
+                line = (
+                    "2026-10-26T12:40:00+01:00 server sshd-session[760]: "
+                    f"{action} password for user "
+                    "from 192.168.50.20 port 33566 ssh2"
+                )
+
+                event = parse_event(line)
+
+                self.assertIsNotNone(event)
+                self.assertEqual(event["result"], expected)
+                self.assertEqual(event["user"], "user")
+                self.assertEqual(event["ip"], "192.168.50.20")
+                self.assertEqual(event["auth_method"], "password")
+
+    def test_sshd_session_pam_is_counted_as_unparsed(self):
+        lines = [
+            "2026-10-26T12:40:00+01:00 server sshd-session[760]: "
+            "pam_unix(sshd:auth): authentication failure; "
+            "logname= uid=0 euid=0 tty=ssh ruser= "
+            "rhost=192.168.50.20 user=user"
+        ]
+
+        result = analyze_lines(lines)
+
+        self.assertEqual(result["parsing"], {
+            "total_lines": 1,
+            "parsed_events": 0,
+            "non_ssh_lines": 0,
+            "unparsed_ssh_lines": 1,
+        })
+        self.assertEqual(result["summary"]["events"], 0)
+        self.assertEqual(result["alerts"], [])
 if __name__ == '__main__':
     unittest.main()

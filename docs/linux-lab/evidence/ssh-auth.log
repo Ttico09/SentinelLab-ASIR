@@ -1,0 +1,13 @@
+2026-10-26T12:40:15+01:00 server unix_chkpwd[762]: password check failed for user (user)
+2026-10-26T12:40:15+01:00 server sshd-session[760]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=192.168.50.20  user=user
+2026-10-26T12:40:18+01:00 server sshd-session[760]: Failed password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:21+01:00 server unix_chkpwd[763]: password check failed for user (user)
+2026-10-26T12:40:24+01:00 server sshd-session[760]: Failed password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:27+01:00 server unix_chkpwd[764]: password check failed for user (user)
+2026-10-26T12:40:30+01:00 server sshd-session[760]: Failed password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:32+01:00 server unix_chkpwd[765]: password check failed for user (user)
+2026-10-26T12:40:34+01:00 server sshd-session[760]: Failed password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:38+01:00 server unix_chkpwd[766]: password check failed for user (user)
+2026-10-26T12:40:40+01:00 server sshd-session[760]: Failed password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:45+01:00 server sshd-session[760]: Accepted password for user from 192.168.50.20 port 33566 ssh2
+2026-10-26T12:40:45+01:00 server sshd-session[760]: pam_unix(sshd:session): session opened for user user(uid=1000) by user(uid=0)
