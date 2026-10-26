@@ -66,8 +66,8 @@ tras fallos no demuestra por sí sola que exista un compromiso.
 
 ## Evidencias y reproducción
 
-- [Registro original exportado](evidence/ssh-auth.log)
-- [Informe generado](evidence/report.json)
+- [Registro original exportado](ssh-auth.log)
+- [Informe generado](report.json)
 
 Desde la raíz del repositorio:
 
@@ -76,3 +76,9 @@ Desde la raíz del repositorio:
 Esta validación cubre autenticación por contraseña y el formato
 exportado mediante `journalctl -o short-iso`. No demuestra todavía
 el funcionamiento con todos los formatos o escenarios SSH.
+
+[Volver al proyecto](../../../README.md)
+
+**Estado:** escenario de autenticación por contraseña validado con
+registros reales. El hardening y la autenticación por clave pública
+en las VM quedan pendientes de validación.

@@ -1,10 +1,12 @@
 # SentinelLab-ASIR | Cisco Network Segmentation & ACL Security
 
-**Estado:** implementado y validado en Cisco Packet Tracer  
-**Tipo:** laboratorio educativo de redes y ciberseguridad defensiva  
-**Tecnologías:** Cisco IOS · VLAN · Trunk 802.1Q · Router-on-a-Stick · IPv4 · ACL extendidas · ICMP · HTTP · ARP · STP
-
-**Alcance:** esta es la **fase 2** de SentinelLab-ASIR, completada en un entorno simulado de Cisco Packet Tracer. No incluye todavía el despliegue de un servidor Linux, la integración con el analizador SSH ni un SIEM; esas fases siguen pendientes. Consulta el [estado general del proyecto](../../README.md).
+**Alcance:** práctica de segmentación y filtrado completada en Cisco
+Packet Tracer. El proyecto también incluye un
+[laboratorio SSH con Debian y VirtualBox](../linux-lab/evidence/README.md),
+validado por separado con registros reales. Las VLAN y ACL de esta
+simulación no están integradas con las máquinas virtuales.
+La integración con un SIEM sigue pendiente.
+Consulta el [estado general del proyecto](../../README.md).
 
 ## 1. Objetivo del proyecto
 
@@ -70,16 +72,25 @@ La ACL `ACL-USERS-IN` se aplica **en entrada (`in`)** sobre `GigabitEthernet0/0.
 
 ```cisco
 ip access-list extended ACL-USERS-IN
- remark Allow ICMP to VLAN 20 gateway
+ remark ALLOW_PING_TO_VLAN20_GATEWAY
  permit icmp 192.168.20.0 0.0.0.255 host 192.168.20.1 echo
- remark Allow HTTP access to web server
+ remark ALLOW_HTTP_TO_WEB_SERVER_ONLY
  permit tcp 192.168.20.0 0.0.0.255 host 192.168.30.10 eq 80
- remark Deny all other routed traffic from VLAN 20
+ remark BLOCK_MANAGEMENT_VLAN
+ deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255
+ remark BLOCK_OTHER_SERVER_VLAN_TRAFFIC
+ deny ip 192.168.20.0 0.0.0.255 192.168.30.0 0.0.0.255
+ remark DENY_OTHER_USER_TRAFFIC
  deny ip 192.168.20.0 0.0.0.255 any
 !
 interface GigabitEthernet0/0.20
  ip access-group ACL-USERS-IN in
 ```
+
+Configuraciones completas: [R1](R1-config.txt) y [SW1](SW1-config.txt).
+
+Topologías: [antes de la ACL](SentinelLab-Fase2-Before-ACL.pkt)
+y [después de la ACL](SentinelLab-Fase2-After-ACL.pkt).
 
 **Interpretación de las reglas:**
 
