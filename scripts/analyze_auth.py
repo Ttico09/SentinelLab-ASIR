@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 import re
 
-LINE = re.compile(r"^(?P<time>\S+)\s+.+?sshd\[\d+\]:\s+(?P<message>.+)$")
+LINE = re.compile(
+    r"^(?P<time>\S+)\s+.+?sshd(?:-session)?\[\d+\]:\s+(?P<message>.+)$"
+    )
 AUTH = re.compile(
     r"^(?P<action>Failed|Accepted) "
     r"(?P<method>password|publickey) for "
@@ -19,7 +21,7 @@ AUTH = re.compile(
     r"from (?P<ip>\S+) port \d+ ssh2"
     r"(?:: (?P<key_details>.+))?$"
 )
-SSH_PROCESS = re.compile(r"(?:^|\s)sshd\[\d+\]:")
+SSH_PROCESS = re.compile(r"(?:^|\s)sshd(?:-session)?\[\d+\]:")
 
 def parse_event(line):
     """Devuelve un evento SSH normalizado o None si la línea no coincide."""
